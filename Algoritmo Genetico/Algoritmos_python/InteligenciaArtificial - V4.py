@@ -96,30 +96,49 @@ class Trade:
         #print(self.banca," ---- ",valor_atual)
         banca_atual = self.banca
         valor_liquido = 0
+        pos = self.posicoes_abertas
         self.banca_liquida = banca_atual
-        for posicao in self.posicoes_abertas:
-            if posicao[1] == 1:
-              
-                valor_liquido += ((valor_atual - posicao[0]) *0.1/0.0001)
+        for i in range(len(pos)):
+            if pos[i][1] == 1:
+                val_pos = ((valor_atual - pos[i][0]) *0.1/0.0001)
+                valor_liquido += val_pos            
+            elif pos[i][1] ==-1:
+                val_pos =((pos[i][0] - valor_atual) *0.1/0.0001)
+                valor_liquido += val_pos
                 
-            elif posicao[1] ==-1:
-        
-                valor_liquido += ((posicao[0] - valor_atual) *0.1/0.0001)
+                
+            if val_pos <= (-10.09):
+                
+                self.fechar_posicao(valor_atual,1,i)
+                
+                
         self.historico_posicoes.append([valor_liquido])
         self.banca_liquida += valor_liquido
         self.historico_banca_liquida.append([self.banca_liquida])
 
-    def fechar_posicao(self, valor_atual):
-        for posicao in self.posicoes_abertas:
-            valor = valor_atual - posicao[0] if posicao[1] == 1 else posicao[0] - valor_atual
-            self.banca += (valor * 0.1)/0.0001
+    def fechar_posicao(self, valor_atual,parametro = 0,i=0):
+        
+        if parametro ==0:
+            for posicao in self.posicoes_abertas:
+                valor = valor_atual - posicao[0] if posicao[1] == 1 else posicao[0] - valor_atual
+                self.banca += (valor * 0.1)/0.0001
+                if valor > 0:
+                    self.soma_vitorias += (valor * 0.1)/0.0001
+                    self.wins += 1
+                else:
+                    self.soma_derrotas += (valor * 0.1)/0.0001
+                    self.loses += 1
+            self.posicoes_abertas = []
+        elif parametro ==1:
+            valor = valor_atual - self.posicoes_abertas[i][0] if self.posicoes_abertas[i][1] == 1 else self.posicoes_abertas[i][0] - valor_atual
+            self.banca += (valor*0.1)/0.0001
+            
             if valor > 0:
                 self.soma_vitorias += (valor * 0.1)/0.0001
                 self.wins += 1
             else:
                 self.soma_derrotas += (valor * 0.1)/0.0001
                 self.loses += 1
-        self.posicoes_abertas = []
 
     def calcular_winrate(self):
         soma = self.wins + self.loses
@@ -154,7 +173,7 @@ class RedeNeural:
             self.nota_avaliacao = 0
         else:
             self.trade.calcular_media_posicoes()
-            self.nota_avaliacao = self.trade.media_posicoes * self.trade.wins * self.trade.winrate
+            self.nota_avaliacao = (self.trade.soma_vitorias - (self.trade.soma_derrotas*-1) + (self.trade.banca_liquida*0.1)) * (1/(len(self.trade.posicoes_abertas)+1))
             if self.nota_avaliacao <=0:
                 self.nota_avaliacao = 1
         # if self.trade.winrate == 0.5:
@@ -222,12 +241,12 @@ class RedeNeural:
         
         for i in range(len(self.pesos)):
             if random.random() < taxa_mutacao:
-                perturbacao = np.random.randn(*self.pesos[i].valores.shape) * taxa_mutacao
+                perturbacao = np.random.randn(*self.pesos[i].valores.shape) * taxa_mutacao *1.2
                 self.pesos[i].valores += perturbacao
 
         for i in range(len(self.bias)):
             if random.random() < taxa_mutacao:
-                perturbacao = np.random.randn(*self.bias[i].valores.shape) * taxa_mutacao
+                perturbacao = np.random.randn(*self.bias[i].valores.shape) * taxa_mutacao *1.2
                 self.bias[i].valores += perturbacao
         
         return self
@@ -350,9 +369,9 @@ class AlgoritmoGenetico():
         pop = []
         for i in range(self.tamanho_populacao):
             pop.append(RedeNeural(camadas,taxa_dropout,entradas,spread,moeda,volume,banca,valores,max_operacoes))
-            if i < 3:
-                pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 5.1")
-                self.populacao = pop
+            if i < 2:
+                pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 6.1.2")
+        self.populacao = pop
         self.melhor_solucao = self.populacao[0]
         
         
@@ -367,6 +386,7 @@ class AlgoritmoGenetico():
             self.ordenar_rankear()
             geracao = self.populacao[0].geracao
             nova_populacao = []
+            # plotar(self.melhor_solucao)
             self.populacao[0].imprimir_infos_rede()
             print("Avaliação RANK1: %s\nAvaliação RANK2: %s\nAvaliação RANK3: %s" %(self.populacao[0].nota_avaliacao,self.populacao[1].nota_avaliacao,self.populacao[2].nota_avaliacao))
             for individuos_gerados in range(0,self.tamanho_populacao,2):
@@ -396,7 +416,7 @@ if __name__ == "__main__":
     #Parâmetros *********
     frames = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_M15, mt5.TIMEFRAME_M1]
     ativo = "EURUSD"
-    quantidade_frames = 20000
+    quantidade_frames = 40000
     tamanho_entrada = 200
     volume = 0.01
     spread = 0.0002
@@ -406,7 +426,7 @@ if __name__ == "__main__":
     grades = []
     
     #********************
-    tamanho_populacao = 26
+    tamanho_populacao = 20
     mutacao = 0.25
     epocas = 1000
     max_operacoes = 5
@@ -432,7 +452,7 @@ if __name__ == "__main__":
     
     if inicial_1_2 == 1:
         rn = RedeNeural(camadas, taxa_dropout, entradas, spread, ativo, volume, banca_inicial,valores,max_operacoes)
-        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 5.1.1")
+        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 6.1.2")
         rn.rede_start(quantidade_frames, entradas, grade_percentil,grade_de_valores)
         plt.plot(rn.trade.historico_banca_liquida)
         plt.plot(rn.trade.historico_banca)

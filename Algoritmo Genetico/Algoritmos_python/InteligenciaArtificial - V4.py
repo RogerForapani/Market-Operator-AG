@@ -172,16 +172,13 @@ class RedeNeural:
         if self.trade.quantidade_de_operacoes == 1:
             self.nota_avaliacao = 0
         else:
-            self.trade.calcular_media_posicoes()
-            self.nota_avaliacao = (self.trade.soma_vitorias - (self.trade.soma_derrotas*-1) + (self.trade.banca_liquida*0.1)) * (1/(len(self.trade.posicoes_abertas)+1))
+            # self.trade.calcular_media_posicoes()
+            
+            self.nota_avaliacao = self.trade.banca *self.trade.winrate * self.trade.wins          
+                
             if self.nota_avaliacao <=0:
-                self.nota_avaliacao = 1
-        # if self.trade.winrate == 0.5:
-        
-            # self.nota_avaliacao = (self.trade.banca)
-          
-        # else:
-            # self.nota_avaliacao = (self.trade.winrate+1) * self.trade.banca
+                self.nota_avaliacao = 0.0001
+
     
     def crossover(self,outra_rede,camadas,taxa_dropout,entradas,spread,moeda,volume,banca_inicial,valores,max_operacoes,geracao):
         filho1 = RedeNeural(camadas, 
@@ -241,12 +238,12 @@ class RedeNeural:
         
         for i in range(len(self.pesos)):
             if random.random() < taxa_mutacao:
-                perturbacao = np.random.randn(*self.pesos[i].valores.shape) * taxa_mutacao *1.2
+                perturbacao = np.random.randn(*self.pesos[i].valores.shape) * taxa_mutacao 
                 self.pesos[i].valores += perturbacao
 
         for i in range(len(self.bias)):
             if random.random() < taxa_mutacao:
-                perturbacao = np.random.randn(*self.bias[i].valores.shape) * taxa_mutacao *1.2
+                perturbacao = np.random.randn(*self.bias[i].valores.shape) * taxa_mutacao 
                 self.bias[i].valores += perturbacao
         
         return self
@@ -295,14 +292,14 @@ class RedeNeural:
                 self.entradas = np.array(entradas).reshape(-1, 1)
                 self.valores = np.array(self.valores).reshape(-1,1)
             else:
-                entradas = grade_percentil[i:i+200]
-                valores = grade_de_valores[i:i+200]
+                entradas = grade_percentil[i:i+self.camadas[0]-10-1]
+                valores = grade_de_valores[i:i+self.camadas[0]-10-1]
                 self.valores= np.array(valores).reshape(-1,1)
                 self.entradas = np.array(entradas).reshape(-1,1)
                 # print(self.entradas)
             
             
-            self.entrada_com_op = np.vstack((self.entradas,self.trade.obter_posicoes_aberts(self.valores[-1][0],self.max_operacoes)))
+            self.entrada_com_op = np.vstack((self.entradas,self.trade.obter_posicoes_aberts(self.valores[-1][0],self.max_operacoes),self.trade.banca_liquida))
             
             
             
@@ -340,7 +337,7 @@ class AlgoritmoGenetico():
         
     def seleciona_pai(self,soma_avaliacao):
         pai = -1
-        valor_sorteado = random.random() * (soma_avaliacao) *0.7
+        valor_sorteado = random.random() * (soma_avaliacao) 
         soma = 0
         i = 0
         while i < len(self.populacao) and soma < valor_sorteado:
@@ -369,8 +366,8 @@ class AlgoritmoGenetico():
         pop = []
         for i in range(self.tamanho_populacao):
             pop.append(RedeNeural(camadas,taxa_dropout,entradas,spread,moeda,volume,banca,valores,max_operacoes))
-            if i < 2:
-                pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 6.1.2")
+            # if i < 3:
+                # pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 7.1.13")
         self.populacao = pop
         self.melhor_solucao = self.populacao[0]
         
@@ -416,18 +413,18 @@ if __name__ == "__main__":
     #Parâmetros *********
     frames = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_M15, mt5.TIMEFRAME_M1]
     ativo = "EURUSD"
-    quantidade_frames = 40000
+    quantidade_frames = 20000
     tamanho_entrada = 200
     volume = 0.01
-    spread = 0.0002
+    spread = 0.0004
     taxa_dropout = 0.0001
     volume = 0.01
     banca_inicial = 100
     grades = []
     
     #********************
-    tamanho_populacao = 20
-    mutacao = 0.25
+    tamanho_populacao = 50
+    mutacao = 0.005
     epocas = 1000
     max_operacoes = 5
     
@@ -448,11 +445,11 @@ if __name__ == "__main__":
         
     entradas = grade_percentil[0:tamanho_entrada]
     valores = grade_de_valores[0:tamanho_entrada]
-    camadas = [len(entradas)+(max_operacoes*2), 256, 128, 64, 32, 3]
+    camadas = [len(entradas)+(max_operacoes*2)+1, 256, 128, 64, 32, 3]
     
     if inicial_1_2 == 1:
         rn = RedeNeural(camadas, taxa_dropout, entradas, spread, ativo, volume, banca_inicial,valores,max_operacoes)
-        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 6.1.2")
+        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 7.1.13")
         rn.rede_start(quantidade_frames, entradas, grade_percentil,grade_de_valores)
         plt.plot(rn.trade.historico_banca_liquida)
         plt.plot(rn.trade.historico_banca)

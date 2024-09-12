@@ -292,14 +292,14 @@ class RedeNeural:
                 self.entradas = np.array(entradas).reshape(-1, 1)
                 self.valores = np.array(self.valores).reshape(-1,1)
             else:
-                entradas = grade_percentil[i:i+self.camadas[0]-10-1]
-                valores = grade_de_valores[i:i+self.camadas[0]-10-1]
+                entradas = grade_percentil[i:i+self.camadas[0]-10]
+                valores = grade_de_valores[i:i+self.camadas[0]-10]
                 self.valores= np.array(valores).reshape(-1,1)
                 self.entradas = np.array(entradas).reshape(-1,1)
                 # print(self.entradas)
             
             
-            self.entrada_com_op = np.vstack((self.entradas,self.trade.obter_posicoes_aberts(self.valores[-1][0],self.max_operacoes),self.trade.banca_liquida))
+            self.entrada_com_op = np.vstack((self.entradas,self.trade.obter_posicoes_aberts(self.valores[-1][0],self.max_operacoes)))
             
             
             
@@ -367,7 +367,7 @@ class AlgoritmoGenetico():
         for i in range(self.tamanho_populacao):
             pop.append(RedeNeural(camadas,taxa_dropout,entradas,spread,moeda,volume,banca,valores,max_operacoes))
             # if i < 3:
-                # pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 7.1.13")
+                # pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 8")
         self.populacao = pop
         self.melhor_solucao = self.populacao[0]
         
@@ -413,22 +413,22 @@ if __name__ == "__main__":
     #Parâmetros *********
     frames = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_M15, mt5.TIMEFRAME_M1]
     ativo = "EURUSD"
-    quantidade_frames = 20000
+    quantidade_frames = 50000
     tamanho_entrada = 200
     volume = 0.01
     spread = 0.0004
-    taxa_dropout = 0.0001
+    taxa_dropout = 0.01
     volume = 0.01
     banca_inicial = 100
     grades = []
     
     #********************
     tamanho_populacao = 50
-    mutacao = 0.005
+    mutacao = 0.10
     epocas = 1000
     max_operacoes = 5
     
-    inicial_1_2 = 2
+    inicial_1_2 = 1
     
     #********************
     
@@ -445,11 +445,11 @@ if __name__ == "__main__":
         
     entradas = grade_percentil[0:tamanho_entrada]
     valores = grade_de_valores[0:tamanho_entrada]
-    camadas = [len(entradas)+(max_operacoes*2)+1, 256, 128, 64, 32, 3]
+    camadas = [len(entradas)+(max_operacoes*2), 256, 128, 64, 32, 3]
     
     if inicial_1_2 == 1:
         rn = RedeNeural(camadas, taxa_dropout, entradas, spread, ativo, volume, banca_inicial,valores,max_operacoes)
-        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 7.1.13")
+        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 9")
         rn.rede_start(quantidade_frames, entradas, grade_percentil,grade_de_valores)
         plt.plot(rn.trade.historico_banca_liquida)
         plt.plot(rn.trade.historico_banca)

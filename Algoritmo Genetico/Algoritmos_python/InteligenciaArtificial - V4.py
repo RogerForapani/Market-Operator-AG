@@ -12,6 +12,7 @@ import json
 import pandas as pd
 import random
 from datetime import datetime
+import statsmodels.api as sm
 
 def copiar_rates(ativo, num_rates, frame):
     rates = mt5.copy_rates_from_pos(ativo, frame, 0, num_rates)
@@ -34,10 +35,17 @@ def criar_grade(rates):
     return [grade_de_entradas,grade_percentil]
 
 def plotar(rede_neural):
+    z = rede_neural.trade.historico_banca_liquida
+    y = np.array(z).flatten()
+    x = list(range(len(y)))
     plt.plot(rede_neural.trade.historico_banca)
     plt.plot(rede_neural.trade.historico_banca_liquida)
     plt.show()
-
+    modelo_linear= np.poly1d(np.polyfit(x,y,1))
+    linha = np.linspace(1,x)
+    plt.scatter(x, y, c="red")
+    plt.plot(linha, modelo_linear(linha))
+    plt.show()
 class Trade:
     def __init__(self, spread, moeda, volume, banca):
         self.spread = spread
@@ -173,9 +181,15 @@ class RedeNeural:
             self.nota_avaliacao = 0
         else:
             # self.trade.calcular_media_posicoes()
+            x = np.array(self.trade.historico_banca_liquida).flatten()
+            y = list(range(len(self.trade.historico_banca_liquida)))
             
-            self.nota_avaliacao = self.trade.banca *self.trade.winrate * self.trade.wins          
-                
+            x = sm.add_constant(x)
+            modelo = sm.OLS(y,x).fit()
+            erro_padrao = modelo.scale ** 0.5
+            
+            #self.nota_avaliacao = ((self.trade.banca + self.trade.banca_liquida)/2) *self.trade.winrate * self.trade.wins          
+            self.nota_avaliacao = (1/erro_padrao) * modelo.params[1]
             if self.nota_avaliacao <=0:
                 self.nota_avaliacao = 0.0001
 
@@ -334,6 +348,7 @@ class AlgoritmoGenetico():
         self.melhor_solucao = 0
         self.epocas = epocas
         self.mutacao = mutacao
+        self.melhores = []
         
     def seleciona_pai(self,soma_avaliacao):
         pai = -1
@@ -367,7 +382,7 @@ class AlgoritmoGenetico():
         for i in range(self.tamanho_populacao):
             pop.append(RedeNeural(camadas,taxa_dropout,entradas,spread,moeda,volume,banca,valores,max_operacoes))
             # if i < 3:
-                # pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 8")
+                # pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 10")
         self.populacao = pop
         self.melhor_solucao = self.populacao[0]
         
@@ -382,6 +397,8 @@ class AlgoritmoGenetico():
             soma_aval = self.avaliar(quantidade_frames,entradas,grade_percentil,grade_de_valores)
             self.ordenar_rankear()
             geracao = self.populacao[0].geracao
+            if self.populacao[0].trade.banca_liquida >= 125:
+                self.melhores.append(self.populacao[0])
             nova_populacao = []
             # plotar(self.melhor_solucao)
             self.populacao[0].imprimir_infos_rede()
@@ -414,7 +431,7 @@ if __name__ == "__main__":
     frames = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_M15, mt5.TIMEFRAME_M1]
     ativo = "EURUSD"
     quantidade_frames = 50000
-    tamanho_entrada = 200
+    tamanho_entrada = 400
     volume = 0.01
     spread = 0.0004
     taxa_dropout = 0.01
@@ -423,8 +440,8 @@ if __name__ == "__main__":
     grades = []
     
     #********************
-    tamanho_populacao = 50
-    mutacao = 0.10
+    tamanho_populacao = 30
+    mutacao = 0.30
     epocas = 1000
     max_operacoes = 5
     
@@ -445,11 +462,11 @@ if __name__ == "__main__":
         
     entradas = grade_percentil[0:tamanho_entrada]
     valores = grade_de_valores[0:tamanho_entrada]
-    camadas = [len(entradas)+(max_operacoes*2), 256, 128, 64, 32, 3]
+    camadas = [len(entradas)+(max_operacoes*2),1024,512,256, 128, 64, 32, 3]
     
-    if inicial_1_2 == 1:
+    if inicial_1_2 == 2:
         rn = RedeNeural(camadas, taxa_dropout, entradas, spread, ativo, volume, banca_inicial,valores,max_operacoes)
-        rn.carregar_pesos_bias("../Weights and Bias/gloriosa evolução 9")
+        rn.carregar_pesos_bias("../Weights and Bias/teste 10-12 - Roger")
         rn.rede_start(quantidade_frames, entradas, grade_percentil,grade_de_valores)
         plt.plot(rn.trade.historico_banca_liquida)
         plt.plot(rn.trade.historico_banca)

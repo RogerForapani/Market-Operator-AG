@@ -46,6 +46,10 @@ def plotar(rede_neural):
     plt.scatter(x, y, c="red")
     plt.plot(linha, modelo_linear(linha))
     plt.show()
+    
+def plotar_melhores(algoritmo_genetico):
+    for alg in algoritmo_genetico.melhores:
+        plotar(alg)
 class Trade:
     def __init__(self, spread, moeda, volume, banca):
         self.spread = spread
@@ -187,9 +191,13 @@ class RedeNeural:
             x = sm.add_constant(x)
             modelo = sm.OLS(y,x).fit()
             erro_padrao = modelo.scale ** 0.5
-            
+            intervalo_confianca = modelo.conf_int()
+            erro_maximo = np.max((intervalo_confianca[:,1]-intervalo_confianca[:,0])/2)
+            fator_banca = max(0, (self.trade.banca_liquida-100)/100)
+            if fator_banca <0.01:
+                fator_banca = 0.01
             #self.nota_avaliacao = ((self.trade.banca + self.trade.banca_liquida)/2) *self.trade.winrate * self.trade.wins          
-            self.nota_avaliacao = (1/erro_padrao) * modelo.params[1]
+            self.nota_avaliacao = modelo.params[1] * (1-(erro_padrao/erro_maximo)) * ((self.trade.wins/self.trade.quantidade_de_operacoes) ** 1.5) * min(1,self.trade.quantidade_de_operacoes/300) *fator_banca
             if self.nota_avaliacao <=0:
                 self.nota_avaliacao = 0.0001
 
@@ -361,10 +369,14 @@ class AlgoritmoGenetico():
             i += 1
         return pai       
         
-    def avaliar(self,quantidade_frames,entradas,grade_percentil,grade_de_valores):
+    def avaliar(self,quantidade_frames,entradas,grade_percentil,grade_de_valores,epoca):
+        #ponto = "."
         soma_aval = 0
+        #i = 1
         for pop in self.populacao:
             pop.rede_start(quantidade_frames,entradas,grade_percentil,grade_de_valores)
+            #print("Epoca %s: %s" %(epoca,ponto))
+            #ponto += "."
             pop.avaliacao()
             soma_aval += pop.nota_avaliacao
         return soma_aval
@@ -381,8 +393,8 @@ class AlgoritmoGenetico():
         pop = []
         for i in range(self.tamanho_populacao):
             pop.append(RedeNeural(camadas,taxa_dropout,entradas,spread,moeda,volume,banca,valores,max_operacoes))
-            # if i < 3:
-                # pop[i].carregar_pesos_bias("../Weights and Bias/gloriosa evolução 10")
+            if i < 3:
+                pop[i].carregar_pesos_bias("../Weights and Bias/teste 11-12 - Roger")
         self.populacao = pop
         self.melhor_solucao = self.populacao[0]
         
@@ -394,11 +406,12 @@ class AlgoritmoGenetico():
         print(self.epocas)
         for epoca in range(int(self.epocas)):
             print(epoca)
-            soma_aval = self.avaliar(quantidade_frames,entradas,grade_percentil,grade_de_valores)
+            soma_aval = self.avaliar(quantidade_frames,entradas,grade_percentil,grade_de_valores,epoca)
             self.ordenar_rankear()
             geracao = self.populacao[0].geracao
-            if self.populacao[0].trade.banca_liquida >= 125:
-                self.melhores.append(self.populacao[0])
+            #if self.populacao[0].trade.banca_liquida >= 125:
+            #    self.melhores.append(self.populacao[0])
+            self.melhores.append(self.populacao[0])
             nova_populacao = []
             # plotar(self.melhor_solucao)
             self.populacao[0].imprimir_infos_rede()
